@@ -37,14 +37,17 @@ ParticuleMaterial::ParticuleMaterial(std::string name) :
 
 
 	/**************************TP 2 ****************************/
-	// Create SSBO  : glCreateBuffers (position,velocité, couleur (?)) 
+	// Create SSBO  : glCreateBuffers (position,velocité, !!couleur (?)!!) 
 	// Populate SSB : glNamedBufferStorage - Pensez a utiliser des vec4 pour eviter les erreurs d'alignements
 	// Repartir les particules aléatoirement (utiliser glm::sphericalRand)
 	// Créer le compute shader
 
 	/**********************************************************/
 
-
+    cp = new GLProgram(MaterialPath + "ParticuleMaterial/ParticuleMaterial-CS.glsl", GL_COMPUTE_SHADER);
+    l_GravityDir = glGetUniformLocation(cp->getId(), "GravityDir");
+    l_Mass = glGetUniformLocation(cp->getId(), "Mass");
+    l_DeltaTime = glGetUniformLocation(cp->getId(), "DeltaTime");
 
 	l_Time = glGetUniformLocation(vp->getId(), "Time");
 
@@ -93,14 +96,11 @@ void ParticuleMaterial::animate(Node* o, const float elapsedTime)
 	glm::vec3 gravityDir = Scene::getInstance()->getSceneNode()->frame()->convertDirTo(glm::vec3(0.0, -1.0, 0.0), o->frame());
     /**************************TP 2 ****************************/
     // Envoyer la direction de la gravité au compute shader
-    
     /**********************************************************/
-
+    glProgramUniform3fv(cp->getId(), l_GravityDir, 1, glm::value_ptr(gravityDir));
 
 
 	simulation();
-	
-
 }
 
 void ParticuleMaterial::simulation()
@@ -108,22 +108,18 @@ void ParticuleMaterial::simulation()
 
 	glBeginQuery(GL_TIME_ELAPSED, mQueryTimeElapsed);
 
-       
-
-		/**************************TP 2 ****************************/
-        // Lier les SSBOs : glBindBufferBase
-        // Lancer le compute shader :  glDispatchCompute(X,Y,Z);
-
-        /**********************************************************/
+	/**************************TP 2 ****************************/
+    // Lier les SSBOs : glBindBufferBase
+    // Lancer le compute shader :  glDispatchCompute(X,Y,Z);
+    /**********************************************************/
+	
+	//lier et intervertir le binding entre les ssbo's t et t+1
 
     glUseProgram(NULL);
     glEndQuery(GL_TIME_ELAPSED);
     GLuint64 result = static_cast<GLuint64>(0);
     glGetQueryObjectui64v(mQueryTimeElapsed, GL_QUERY_RESULT, &result);
     mSimTime = result;
-
-	
-
 }
 
 
@@ -134,19 +130,16 @@ void ParticuleMaterial::updatePhong()
 	glProgramUniform3fv(fp->getId(), l_specColor, 1, glm::value_ptr(param.specularColor));
 }
 
-
-
 void ParticuleMaterial::updateSimulationParameters()
 {
     /**************************TP 2 ****************************/
     // Mettre a jour les parmetres de la simulation
-
     /**********************************************************/
 
+	//set uniform mass et deltatime
+    glProgramUniform1fv(cp->getId(), l_Mass, 1, &physik.mass);
+    glProgramUniform1fv(cp->getId(), l_DeltaTime, 1, &physik.deltaTime);
 }
-
-
-
 
 void ParticuleMaterial::displayInterface()
 {

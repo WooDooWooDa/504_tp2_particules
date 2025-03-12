@@ -75,6 +75,7 @@ public:
 protected:
 	GLProgram* vp;
 	GLProgram* fp;
+    GLProgram* cp;
 
     GLuint mQueryTimeElapsed;
     GLuint64 mSimTime;
@@ -86,7 +87,7 @@ protected:
 
 	GLuint l_ViewProj, l_Model, l_PosLum, l_PosCam, l_Phong, l_Albedo, l_specColor, l_Time;
 
-	GLuint lDeltaTime, lMass, l_GravityDir, l_PNum;
+	GLuint l_DeltaTime, l_Mass, l_GravityDir, l_PNum;
 
     GLuint m_Positions[2];
 
