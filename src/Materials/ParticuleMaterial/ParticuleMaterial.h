@@ -80,9 +80,6 @@ protected:
     GLuint mQueryTimeElapsed;
     GLuint64 mSimTime;
 
-    
-
-
 	glm::dvec3 up_direction;
 
 	GLuint l_ViewProj, l_Model, l_PosLum, l_PosCam, l_Phong, l_Albedo, l_specColor, l_Time;
@@ -90,8 +87,8 @@ protected:
 	GLuint l_DeltaTime, l_Mass, l_GravityDir, l_PNum;
 
     GLuint m_Positions[2];
-
-     GLuint m_Velocities[2];
+    GLuint m_Velocities[2];
+    bool bufferBindFlag;
 
     GLuint m_Colors;
 

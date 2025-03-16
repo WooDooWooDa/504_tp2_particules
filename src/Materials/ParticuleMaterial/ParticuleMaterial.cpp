@@ -45,9 +45,29 @@ ParticuleMaterial::ParticuleMaterial(std::string name) :
 	/**********************************************************/
 
     cp = new GLProgram(MaterialPath + "ParticuleMaterial/ParticuleMaterial-CS.glsl", GL_COMPUTE_SHADER);
+    //m_ProgramPipeline->useProgramStage(cp, GL_COMPUTE_SHADER_BIT);
     l_GravityDir = glGetUniformLocation(cp->getId(), "GravityDir");
     l_Mass = glGetUniformLocation(cp->getId(), "Mass");
     l_DeltaTime = glGetUniformLocation(cp->getId(), "DeltaTime");
+
+	const int bufferSize = sizeof(glm::vec4) * PARTICULENUMBER;
+
+	glCreateBuffers(2, m_Positions);
+    glm::vec4 tempPos[PARTICULENUMBER];
+    for (int i = 0; i < PARTICULENUMBER; i++) {
+
+        tempPos[i] = glm::vec4(glm::sphericalRand(5.0f), 0);
+	}
+    glNamedBufferStorage(m_Positions[0], bufferSize, tempPos, GL_DYNAMIC_STORAGE_BIT);
+    glNamedBufferStorage(m_Positions[1], bufferSize, tempPos, GL_DYNAMIC_STORAGE_BIT);
+
+    glCreateBuffers(2, m_Velocities);
+    glm::vec4 tempVelo[PARTICULENUMBER];
+    for (int i = 0; i < PARTICULENUMBER; i++) {
+        tempVelo[i] = glm::vec4(0);
+    }
+    glNamedBufferStorage(m_Velocities[0], bufferSize, tempVelo, GL_DYNAMIC_STORAGE_BIT);
+    glNamedBufferStorage(m_Velocities[1], bufferSize, tempVelo, GL_DYNAMIC_STORAGE_BIT);
 
 	l_Time = glGetUniformLocation(vp->getId(), "Time");
 
@@ -69,12 +89,12 @@ void ParticuleMaterial::render(Node* o)
 	/**************************TP 2 ****************************/
 	// Lier les SSBO pour le rendu : glBindBufferBase
 	/**********************************************************/
-
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_Positions[bufferBindFlag ? 0 : 1]);
 
 	m_ProgramPipeline->bind();
 
 	// Afficher en utilisant l'instanciation - Affiche N modeles
-	 o->drawGeometryInstanced(GL_TRIANGLES,PARTICULENUMBER);
+	o->drawGeometryInstanced(GL_TRIANGLES, PARTICULENUMBER);
 
 	m_ProgramPipeline->release();
 }
@@ -98,7 +118,7 @@ void ParticuleMaterial::animate(Node* o, const float elapsedTime)
     // Envoyer la direction de la gravité au compute shader
     /**********************************************************/
     glProgramUniform3fv(cp->getId(), l_GravityDir, 1, glm::value_ptr(gravityDir));
-
+    bufferBindFlag = !bufferBindFlag;
 
 	simulation();
 }
@@ -112,8 +132,14 @@ void ParticuleMaterial::simulation()
     // Lier les SSBOs : glBindBufferBase
     // Lancer le compute shader :  glDispatchCompute(X,Y,Z);
     /**********************************************************/
-	
-	//lier et intervertir le binding entre les ssbo's t et t+1
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bufferBindFlag ? 0 : 1, m_Positions[0]);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, !bufferBindFlag ? 0 : 1, m_Positions[1]);
+
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bufferBindFlag ? 2 : 3, m_Velocities[0]);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, !bufferBindFlag ? 2 : 3, m_Velocities[1]);
+
+	glUseProgram(cp->getId());
+	glDispatchCompute(1,1,1);
 
     glUseProgram(NULL);
     glEndQuery(GL_TIME_ELAPSED);
@@ -136,7 +162,6 @@ void ParticuleMaterial::updateSimulationParameters()
     // Mettre a jour les parmetres de la simulation
     /**********************************************************/
 
-	//set uniform mass et deltatime
     glProgramUniform1fv(cp->getId(), l_Mass, 1, &physik.mass);
     glProgramUniform1fv(cp->getId(), l_DeltaTime, 1, &physik.deltaTime);
 }
