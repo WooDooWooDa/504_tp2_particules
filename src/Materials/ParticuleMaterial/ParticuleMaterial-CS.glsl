@@ -26,12 +26,34 @@ layout(std140, binding = 3) buffer Velocities1Buffer
     vec4 Velocityt1[];
 };
 
-void ColliderWithPlane() {
+const uint PlaneDist = 10;
+const float SphereRadius = 0.3f;
+const float impact = 0.8;
+const float friction = 0.8f;
 
+void ColliderWithPlane(vec4 n, vec4 a, inout vec4 V, inout vec4 P) {
+    if (dot((P - a), n) < SphereRadius) {
+        // mettre a jour v prime
+        vec4 Vper = dot(V, n) * n;
+        vec4 Vpar = V - dot(V, n) * n;
+        V = friction * Vpar - impact * Vper;
+
+        // corriger position
+        float d = SphereRadius - dot(P - a, n);
+        P = P + d * n;
+    }
 }
 
-void CollideWithBox() {
-    //call collide with plane 6 times for each side
+void CollideWithBox(inout vec4 V, inout vec4 P) {
+    //Colldie avec tout les cotés
+    ColliderWithPlane(vec4(0, 1, 0, 0), vec4(0, -10, 0, 0), V, P);  //Bottom
+    ColliderWithPlane(vec4(0, -1, 0, 0), vec4(0, 10, 0, 0), V, P);  //Top
+    
+    ColliderWithPlane(vec4(1, 0, 0, 0), vec4(-10, 0, 0, 0), V, P);  //Left
+    ColliderWithPlane(vec4(-1, 0, 0, 0), vec4(10, 0, 0, 0), V, P);  //Right
+    
+    ColliderWithPlane(vec4(0, 0, 1, 0), vec4(0, 0, -10, 0), V, P);  //Back
+    ColliderWithPlane(vec4(0, 0, -1, 0), vec4(0, 0, 10, 0), V, P);  //Front
 }
 
 void main() {
@@ -47,25 +69,14 @@ void main() {
     //Vitesse
     Velocityt1[id] = Velocityt[id] + vec4(acc * DeltaTime, 0);
 
-    uint PlaneDist = 10;
-    float SphereRadius = 0.3f;
-    float impact = 0.8;
-    float friction = 0.8f;
     vec4 Position = Positiont[id];
+    vec4 Velocity = Velocityt1[id];
 
-    vec4 n = vec4(0, 1, 0, 0); //normal du plancher
-    vec4 a = vec4(0, -10, 0, 0); //point sur le plancher
-    if (dot((Position - a), n) < SphereRadius) {
-        // mettre a jour v prime
-        vec4 Vper = dot(Velocityt1[id], n) * n;
-        vec4 Vpar = Velocityt1[id] - dot(Velocityt1[id], n) * n;
-        Velocityt1[id] = friction * Vpar - impact * Vper;
+    CollideWithBox(Velocity, Position);
 
-        // corriger position
-        float d = SphereRadius - dot(Position - a, n);
-        Positiont[id] = Positiont[id] + d * n;
-    }
+    //Update velocity after collisions
+    Velocityt1[id] = Velocity;
 
     //Position
-    Positiont1[id] = Positiont[id] + (Velocityt1[id] * DeltaTime);
+    Positiont1[id] = Position + (Velocity * DeltaTime);
 }
