@@ -49,6 +49,8 @@ ParticuleMaterial::ParticuleMaterial(std::string name) :
     l_GravityDir = glGetUniformLocation(cp->getId(), "GravityDir");
     l_Mass = glGetUniformLocation(cp->getId(), "Mass");
     l_DeltaTime = glGetUniformLocation(cp->getId(), "DeltaTime");
+    l_PNum = glGetUniformLocation(cp->getId(), "NumParticules");
+    glProgramUniform1i(cp->getId(), l_PNum, PARTICULENUMBER);
 
 	const int bufferSize = sizeof(glm::vec4) * PARTICULENUMBER;
 

@@ -2,6 +2,7 @@
 
 layout(local_size_x = 1000, local_size_y = 1, local_size_z = 1) in;
 
+uniform int NumParticules;
 uniform vec3 GravityDir;
 uniform float DeltaTime;
 uniform float Mass;
@@ -56,6 +57,37 @@ void CollideWithBox(inout vec4 V, inout vec4 P) {
     ColliderWithPlane(vec4(0, 0, -1, 0), vec4(0, 0, 10, 0), V, P);  //Front
 }
 
+void CollideWithAllSpheres(uint id, inout vec4 V, inout vec4 P) {
+    //uint nbPart = Positiont.length();
+    for(uint i = 0; i < NumParticules; ++i) {
+        if (i == id) continue;  //Dont check for self
+
+        vec4 dir = Positiont[i] - P;
+        vec4 n = normalize(dir);
+        float dist = length(dir);
+
+        //collision?
+        if (dist < SphereRadius) {
+            //corriger pos
+            float d = (SphereRadius - dist) * 0.5;
+            P -= d * n;
+            Positiont[i] += d * n;
+
+            vec4 Vi = Velocityt1[i];
+
+            vec4 ViPer = dot(Vi, n) * n;
+            vec4 ViPar = Vi - ViPer;
+
+            vec4 Vper = dot(V, n) * n;
+            vec4 Vpar = V - Vper;
+
+            //échanger vitesse per.
+            V = Vpar + ViPer;               //Friction & impact??
+            Velocityt1[i] = ViPar + Vper;
+        }
+    }
+}
+
 void main() {
     uint id = gl_LocalInvocationID.x;  // Get the unique index for this invocation
 
@@ -74,6 +106,8 @@ void main() {
 
     CollideWithBox(Velocity, Position);
 
+    CollideWithAllSpheres(id, Velocity, Position);
+    
     //Update velocity after collisions
     Velocityt1[id] = Velocity;
 
