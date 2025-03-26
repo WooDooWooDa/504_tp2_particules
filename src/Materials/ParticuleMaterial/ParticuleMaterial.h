@@ -8,7 +8,7 @@
 #include "CustomModelGL.h"
 #include "Texture2D.h"
 
-constexpr auto PARTICULENUMBER = 100;
+constexpr auto PARTICULENUMBER = 1000;
 
 
 class ParticuleMaterial : public MaterialGL

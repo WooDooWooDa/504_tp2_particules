@@ -141,7 +141,8 @@ void ParticuleMaterial::simulation()
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, !bufferBindFlag ? 2 : 3, m_Velocities[1]);
 
 	glUseProgram(cp->getId());
-	glDispatchCompute(1,1,1);
+    int nbWorkGroup = (PARTICULENUMBER / 32) + 1;
+	glDispatchCompute(nbWorkGroup,1,1);
 
     glUseProgram(NULL);
     glEndQuery(GL_TIME_ELAPSED);

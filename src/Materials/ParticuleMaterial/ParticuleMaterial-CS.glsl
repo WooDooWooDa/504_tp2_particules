@@ -1,6 +1,6 @@
 #version 460
 
-layout(local_size_x = 1000, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
 
 uniform int NumParticules;
 uniform vec3 GravityDir;
@@ -89,7 +89,7 @@ void CollideWithAllSpheres(uint id, inout vec4 V, inout vec4 P) {
 }
 
 void main() {
-    uint id = gl_LocalInvocationID.x;  // Get the unique index for this invocation
+    uint id = (gl_WorkGroupID.x * gl_WorkGroupSize.x) + gl_LocalInvocationID.x;  // Get the unique index for this invocation
 
     if (id >= Positiont.length()) return;
 
