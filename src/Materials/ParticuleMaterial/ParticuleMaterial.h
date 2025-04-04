@@ -29,6 +29,11 @@ class ParticuleMaterial : public MaterialGL
 
 	};
 
+    struct ParticuleNode {
+        int id;
+        int next; // Pointer to next object (-1 if end of list)
+    };
+
 
 public:
 
@@ -88,6 +93,8 @@ protected:
 
     GLuint m_Positions[2];
     GLuint m_Velocities[2];
+    GLuint m_particuleNodesBuffer[1];
+    GLuint m_gridCellsbuffer[1];
     bool bufferBindFlag;
 
     GLuint m_Colors;

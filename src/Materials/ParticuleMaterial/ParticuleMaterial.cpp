@@ -71,6 +71,25 @@ ParticuleMaterial::ParticuleMaterial(std::string name) :
     glNamedBufferStorage(m_Velocities[0], bufferSize, tempVelo, GL_DYNAMIC_STORAGE_BIT);
     glNamedBufferStorage(m_Velocities[1], bufferSize, tempVelo, GL_DYNAMIC_STORAGE_BIT);
 
+	glCreateBuffers(1, m_particuleNodesBuffer);
+    ParticuleNode tempnode[PARTICULENUMBER];
+    for (int i = 0; i < PARTICULENUMBER; i++) {
+        ParticuleNode node;
+        node.id = i;
+        node.next = -1;
+        tempnode[i] = node;
+    }
+    glNamedBufferStorage(m_particuleNodesBuffer[0], sizeof(ParticuleNode) * PARTICULENUMBER, tempnode, GL_DYNAMIC_STORAGE_BIT);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_particuleNodesBuffer[0]);
+
+	glCreateBuffers(1, m_gridCellsbuffer);
+    int temp[25 * 25 * 25];
+    for (int i = 0; i < (25 * 25 *25); i++) {
+        temp[i] = -1;
+    }
+    glNamedBufferStorage(m_gridCellsbuffer[0], sizeof(int) * (25 * 25 * 25), temp, GL_DYNAMIC_STORAGE_BIT);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, m_gridCellsbuffer[0]);
+
 	l_Time = glGetUniformLocation(vp->getId(), "Time");
 
 	physik.mass = 0.1f;
