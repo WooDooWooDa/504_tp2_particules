@@ -8,7 +8,7 @@
 #include "CustomModelGL.h"
 #include "Texture2D.h"
 
-constexpr auto PARTICULENUMBER = 1000;
+constexpr auto PARTICULENUMBER = 10000;
 
 
 class ParticuleMaterial : public MaterialGL
@@ -93,8 +93,9 @@ protected:
 
     GLuint m_Positions[2];
     GLuint m_Velocities[2];
-    GLuint m_particuleNodesBuffer[1];
-    GLuint m_gridCellsbuffer[1];
+    GLuint m_particuleNodesBuffer;
+    GLuint m_gridCellsBuffer;
+    GLuint m_colorBuffer;
     bool bufferBindFlag;
 
     GLuint m_Colors;

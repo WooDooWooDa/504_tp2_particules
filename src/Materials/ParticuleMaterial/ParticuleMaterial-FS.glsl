@@ -33,7 +33,7 @@ void main()
 	float Id = max(0,dot(L,N));
 	float Is = pow(max(0,dot(reflect(-L,N),V)),Phong.w);
 
-	vec3 diffuseColor = diffuseAlbedo;
+	vec3 diffuseColor = v_Color;
 
 	
 	Color.xyz = Phong.x*diffuseColor + Phong.y*diffuseColor*Id + Phong.z*Is*specularColor;

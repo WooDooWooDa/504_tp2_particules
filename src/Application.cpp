@@ -40,7 +40,7 @@ Application::Application(int width, int height, std::string name)
     glfwMakeContextCurrent(m_window);
     glfwSetWindowUserPointer(m_window, this);
 
-    // glfwSwapInterval(0);
+    glfwSwapInterval(0);
 
     // Load all OpenGL functions using the glfw loader function
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {

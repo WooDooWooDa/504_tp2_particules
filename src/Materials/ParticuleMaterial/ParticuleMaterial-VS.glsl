@@ -18,6 +18,10 @@ layout(std430, binding = 0) buffer ParticleBuffer {
     vec4 particulesPositions[];
 };
 
+layout(std430, binding = 1) buffer ParticleColorBuffer {
+    vec3 color[];
+};
+
 
 layout (location = 0) in vec3 Position;
 layout (location = 2) in vec3 Normal;
@@ -50,6 +54,5 @@ void main()
     vV = (PosCam-Pos);
     uv = texCoords.xy;
 
-  
-
+    v_Color = color[gl_InstanceID];
 }

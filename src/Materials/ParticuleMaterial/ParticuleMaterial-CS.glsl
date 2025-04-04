@@ -27,12 +27,13 @@ layout(std140, binding = 3) buffer Velocities1Buffer
     vec4 Velocityt1[];
 };
 
-const int MaxParticulesInCell = 25;
+const int MaxParticulesInCell = 17;
 ivec3 gridSize = ivec3(20, 20, 20);
+shared uint mutex = 0;
 
 struct ParticuleNode {
     int id;
-    int next;  // Pointer to next object (-1 if end of list)
+    int next;
 };
 
 layout(std430, binding = 4) buffer ParticulesBuffer {
@@ -40,80 +41,55 @@ layout(std430, binding = 4) buffer ParticulesBuffer {
 };
 
 layout(std430, binding = 5) buffer GridBuffer {
-    int gridHead[];  // Stores the first object index per cell (-1 if empty)
+    int gridHead[];
 };
 
 int getGridIndex(vec4 pos) {
-    ivec4 int_pos = ivec4(pos);
+    ivec3 int_pos = ivec3(pos.xyz + vec3(10.0));  // [-10, 10] -> [0, 20]
     return int_pos.x + gridSize.x * (int_pos.y + gridSize.y * int_pos.z);
 }
 
-void removeParticuleFromGrid(int objIndex, vec4 pos) {
+void updateParticuleCell(vec4 pos, uint id) {
     int cellIndex = getGridIndex(pos);
 
-    int prev = -1;
-    int curr = gridHead[cellIndex];
-
-    while (curr != -1) {
-        if (curr == objIndex) {
-            if (prev == -1) {
-                // Object is the first in the list, update gridHead
-                gridHead[cellIndex] = ParticulesNodeBuffer[curr].next;
-            } else {
-                // Skip the current object
-                ParticulesNodeBuffer[prev].next = ParticulesNodeBuffer[curr].next;
-            }
-            ParticulesNodeBuffer[curr].next = -1; // Clear its next pointer
-            return;
-        }
-        prev = curr;
-        curr = ParticulesNodeBuffer[curr].next;
-    }
+    int lastHead = atomicExchange(gridHead[cellIndex], int(id));
+    atomicExchange(ParticulesNodeBuffer[gridHead[cellIndex]].next, lastHead);
 }
 
-void insertParticule(int currentHeadPartIndex, vec4 pos, uint id) {
-    int cellIndex = getGridIndex(pos);
-
-    // Assign new ID
-
-    // Ensure this particle's `next` pointer is -1 initially
-    //ParticulesNodeBuffer[headPartIndex].next = -1;
-
-    // Add to the front of the linked list
-    if (ParticulesNodeBuffer[currentHeadPartIndex].next != -1) {
-        ParticulesNodeBuffer[currentHeadPartIndex].next = gridHead[cellIndex];  // Link to old head
-    }
-
-    gridHead[cellIndex] = int(id);  // Update grid head to the new object
-}
-
-
-void moveObject(int headPartIndex, vec4 oldPos, vec4 newPos, uint id) {
-    removeParticuleFromGrid(headPartIndex, oldPos);
-    insertParticule(headPartIndex, newPos, id);
-}
-
-int[MaxParticulesInCell] getObjectsInCell(vec4 position) {
-    int cellIndex = getGridIndex(position);
+void getObjectsInCell(int cellIndex, out int objectIds[MaxParticulesInCell]) {
     int headIndex = gridHead[cellIndex];
     int objIndex = headIndex;
 
-    int objectIds[MaxParticulesInCell];
     int i = 0;
-
-    for (int j = 0; j < MaxParticulesInCell; j++) {
-        objectIds[j] = -1;
-    }
-
-    while (objIndex != -1 || i < MaxParticulesInCell) {
+    while (objIndex != -1 && i < MaxParticulesInCell) {
         ParticuleNode part = ParticulesNodeBuffer[objIndex];
 
         objectIds[i] = part.id;
         i++;
         
-        objIndex = part.next; // Move to next object in the list
+        objIndex = part.next;
     }
-    return objectIds;
+
+    if (objIndex == -1 && i < MaxParticulesInCell) {
+        objectIds[i+1] = -1;
+    }
+}
+
+void getNeighboringCells(int cellIndex, out int neighbors[7]) {
+    int gridX = cellIndex % gridSize.x;
+    int gridY = (cellIndex / gridSize.x) % gridSize.y;
+    int gridZ = cellIndex / (gridSize.x * gridSize.y);
+
+    neighbors[0] = cellIndex; // Current cell
+
+    int count = 1;
+
+    if (gridX > 0) neighbors[count++] = cellIndex - 1;                                      // Left
+    if (gridX < gridSize.x - 1) neighbors[count++] = cellIndex + 1;                         // Right
+    if (gridY > 0) neighbors[count++] = cellIndex - gridSize.x;                             // Bottom
+    if (gridY < gridSize.y - 1) neighbors[count++] = cellIndex + gridSize.x;                // Top
+    if (gridZ > 0) neighbors[count++] = cellIndex - (gridSize.x * gridSize.y);              // Back
+    if (gridZ < gridSize.z - 1) neighbors[count++] = cellIndex + (gridSize.x * gridSize.y); // Front
 }
 
 const uint PlaneDist = 10;
@@ -135,7 +111,7 @@ void ColliderWithPlane(vec4 n, vec4 a, inout vec4 V, inout vec4 P) {
 }
 
 void CollideWithBox(inout vec4 V, inout vec4 P) {
-    //Colldie avec tout les cotés
+    //Collide avec tout les cotés
     ColliderWithPlane(vec4(0, 1, 0, 0), vec4(0, -10, 0, 0), V, P);  //Bottom
     ColliderWithPlane(vec4(0, -1, 0, 0), vec4(0, 10, 0, 0), V, P);  //Top
     
@@ -149,41 +125,45 @@ void CollideWithBox(inout vec4 V, inout vec4 P) {
 void CollideWithLocalSpheres(uint id, inout vec4 V, inout vec4 P) {
 
     int objectIds[MaxParticulesInCell];
-    objectIds = getObjectsInCell(P);
+    int cellIndex = getGridIndex(P);
+    int neighbors[7] = { -1, -1, -1, -1, -1, -1, -1 };
+    getNeighboringCells(cellIndex, neighbors);
+
+    for (uint i = 0; i < 7; ++i) {
+        if (neighbors[i] == -1) continue;
+
+        getObjectsInCell(neighbors[i], objectIds);
     
-    for(uint i = 0; i < NumParticules; ++i) {
-        uint partId = i;//objectIds[i];
-        if (i == id) continue;//|| partId == -1) continue;  //Dont check for self
+        for(uint i = 0; i < MaxParticulesInCell; ++i) {
+            uint partId = objectIds[i];
+            if (partId == -1) break;    //no more in cell
+            if (partId == id) continue; //Dont check for self
 
-        vec4 dir = Positiont[partId] - P;
-        vec4 n = normalize(dir);
-        float dist = length(dir);
+            vec4 dir = Positiont[partId] - P;
+            vec4 n = normalize(dir);
+            float dist = length(dir);
 
-        //collision?
-        if (dist < SphereRadius) {
-            //corriger pos
-            float d = (SphereRadius - dist) * 0.5;
-            P -= d * n;
-            Positiont[partId] += d * n;
+            //collision?
+            if (dist < SphereRadius) {
+                //corriger pos
+                float d = (SphereRadius - dist) * 0.5;
+                P -= d * n;
+                Positiont[partId] += d * n;
 
-            vec4 Vi = Velocityt1[partId];
+                vec4 VelocityPrime = Velocityt1[partId];
 
-            vec4 ViPer = dot(Vi, n) * n;
-            vec4 ViPar = Vi - ViPer;
+                vec4 VelocityPrimePerpendicular = dot(VelocityPrime, n) * n;
+                vec4 VelocityPrimeParallel = VelocityPrime - VelocityPrimePerpendicular;
 
-            vec4 Vper = dot(V, n) * n;
-            vec4 Vpar = V - Vper;
+                vec4 VelocityPerpendicular = dot(V, n) * n;
+                vec4 VelocityParallel = V - VelocityPerpendicular;
 
-            //échanger vitesse per.
-            V = Vpar + ViPer;               //Friction & impact??
-            Velocityt1[partId] = ViPar + Vper;
+                //échanger vitesse per.
+                V = VelocityParallel + VelocityPrimePerpendicular;
+                Velocityt1[partId] = VelocityPrimeParallel + VelocityPerpendicular;
+            }
         }
     }
-}
-
-
-vec3 getCellCoord(vec4 pos) {
-    return vec3(floor(pos.x), floor(pos.y), floor(pos.z));
 }
 
 void main() {
@@ -215,8 +195,6 @@ void main() {
     //Position
     Positiont1[id] = Position + (Velocity * DeltaTime);
     
-    int newCellIndex = getGridIndex(Positiont1[id]);
-    if (newCellIndex != cellIndex) {
-        moveObject(gridHead[cellIndex], Positiont[id], Positiont1[id], id);
-    }
+    //update grid cell
+    updateParticuleCell(Positiont1[id], id);
 }

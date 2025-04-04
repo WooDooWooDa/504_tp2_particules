@@ -3,6 +3,7 @@
 #include "Node.h"
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/random.hpp>
+#include <random>
 
 ParticuleMaterial::ParticuleMaterial(std::string name) :
 	MaterialGL(name)
@@ -54,15 +55,24 @@ ParticuleMaterial::ParticuleMaterial(std::string name) :
 
 	const int bufferSize = sizeof(glm::vec4) * PARTICULENUMBER;
 
+	//Init positions & colors buffers 
 	glCreateBuffers(2, m_Positions);
+    glCreateBuffers(1, &m_Colors);
     glm::vec4 tempPos[PARTICULENUMBER];
+    glm::vec3 tempColor[PARTICULENUMBER];
+    std::random_device rnd;
+    std::mt19937 gen(rnd());
+    std::uniform_real_distribution<float> dist(0.0, 1.0);
     for (int i = 0; i < PARTICULENUMBER; i++) {
-
-        tempPos[i] = glm::vec4(glm::sphericalRand(5.0f), 0);
+		tempPos[i] = glm::vec4(glm::sphericalRand(5.0f), 0);
+        tempColor[i] = glm::vec3(dist(gen), dist(gen), dist(gen));
 	}
     glNamedBufferStorage(m_Positions[0], bufferSize, tempPos, GL_DYNAMIC_STORAGE_BIT);
     glNamedBufferStorage(m_Positions[1], bufferSize, tempPos, GL_DYNAMIC_STORAGE_BIT);
 
+    glNamedBufferStorage(m_Colors, sizeof(glm::vec3) * PARTICULENUMBER, tempColor, GL_DYNAMIC_STORAGE_BIT);
+
+	//Init Velocities Buffers
     glCreateBuffers(2, m_Velocities);
     glm::vec4 tempVelo[PARTICULENUMBER];
     for (int i = 0; i < PARTICULENUMBER; i++) {
@@ -71,24 +81,21 @@ ParticuleMaterial::ParticuleMaterial(std::string name) :
     glNamedBufferStorage(m_Velocities[0], bufferSize, tempVelo, GL_DYNAMIC_STORAGE_BIT);
     glNamedBufferStorage(m_Velocities[1], bufferSize, tempVelo, GL_DYNAMIC_STORAGE_BIT);
 
-	glCreateBuffers(1, m_particuleNodesBuffer);
-    ParticuleNode tempnode[PARTICULENUMBER];
+	//Init ParticuleNode Buffer
+	glCreateBuffers(1, &m_particuleNodesBuffer);
+    ParticuleNode tempnode[PARTICULENUMBER] = {};
     for (int i = 0; i < PARTICULENUMBER; i++) {
-        ParticuleNode node;
-        node.id = i;
-        node.next = -1;
-        tempnode[i] = node;
+        tempnode[i].id = i;
+        tempnode[i].next = -1;
     }
-    glNamedBufferStorage(m_particuleNodesBuffer[0], sizeof(ParticuleNode) * PARTICULENUMBER, tempnode, GL_DYNAMIC_STORAGE_BIT);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_particuleNodesBuffer[0]);
+    glNamedBufferStorage(m_particuleNodesBuffer, sizeof(ParticuleNode) * PARTICULENUMBER, tempnode, GL_DYNAMIC_STORAGE_BIT);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_particuleNodesBuffer);
 
-	glCreateBuffers(1, m_gridCellsbuffer);
-    int temp[25 * 25 * 25];
-    for (int i = 0; i < (25 * 25 *25); i++) {
-        temp[i] = -1;
-    }
-    glNamedBufferStorage(m_gridCellsbuffer[0], sizeof(int) * (25 * 25 * 25), temp, GL_DYNAMIC_STORAGE_BIT);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, m_gridCellsbuffer[0]);
+	//Init gridCell Buffer
+	glCreateBuffers(1, &m_gridCellsBuffer);
+    GLint temp[20 * 20 * 20] = { -1 };
+    glNamedBufferStorage(m_gridCellsBuffer, sizeof(GLint) * (20 * 20 * 20), temp, GL_DYNAMIC_STORAGE_BIT);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, m_gridCellsBuffer);
 
 	l_Time = glGetUniformLocation(vp->getId(), "Time");
 
@@ -111,6 +118,8 @@ void ParticuleMaterial::render(Node* o)
 	// Lier les SSBO pour le rendu : glBindBufferBase
 	/**********************************************************/
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_Positions[bufferBindFlag ? 0 : 1]);
+
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_Colors);
 
 	m_ProgramPipeline->bind();
 
